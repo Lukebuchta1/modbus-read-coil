@@ -1,0 +1,57 @@
+import socket
+import struct
+import time
+
+# PLC Modbus TCP Server Configuration
+PLC_IP = "10.82.164.15"
+PLC_PORT = 502
+
+# Modbus Function Codes
+READ_COILS = 0x01
+
+# Modbus Request Data
+slave_address = 1  # Modify this to match your PLC's slave address
+start_address = 2000  # Modify this to your coil address
+num_coils = 10  # Modify this to the number of coils you want to read
+
+# Create a socket connection to the PLC
+try:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+        client_socket.connect((PLC_IP, PLC_PORT))
+
+        # Build Modbus request
+        request = struct.pack(">HHHBB", 0, 0, 6, slave_address, READ_COILS)
+        request += struct.pack(">HH", start_address, num_coils)
+
+        print("Modbus Request Sent:", request)
+
+        # Send request
+        client_socket.send(request)
+
+        # Receive response
+        response = client_socket.recv(1024)
+
+        print("Modbus Response Received:", response)
+
+        if len(response) < 9:
+            print("Invalid Modbus response length.")
+        else:
+            byte_count = response[8]
+            coil_data = response[9:9 + byte_count]
+
+            # Extract coil values
+            coil_values = []
+            for byte in coil_data:
+                for i in range(8):
+                    coil_values.append((byte >> i) & 0x01)
+
+            print(f"Coil Status from {start_address} to {start_address + num_coils - 1}: {coil_values}")
+
+except socket.timeout:
+    print("Socket operation timed out. Check your connection settings and PLC status.")
+except socket.error as se:
+    print(f"Socket error: {se}")
+except Exception as e:
+    print(f"An error occurred: {e}")
+
+time.sleep(1)  # Delay before the next poll  
